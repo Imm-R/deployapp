@@ -1,0 +1,17 @@
+[Unit]
+Description=Frontend APP
+[Service]
+ExecStart=/usr/bin/npm start --daemon
+Restart=always
+User={{ ansible_user }}
+
+Group=www-data
+Environment=NODE_ENV=education
+WorkingDirectory={{ frontend }}
+StandardOutput=null
+StandardError=syslog
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
+

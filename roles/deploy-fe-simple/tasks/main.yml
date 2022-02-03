@@ -1,0 +1,56 @@
+---
+# tasks file for deploy-fe-simple
+#-------------Not safety solution-----#
+#- name: Get repository frontend
+#  git:
+#   repo: "http://{{ gitlab_username }}:{{ gitlab_password }}@gitlab.repo.git"
+#   dest: "{{ frontend }}"
+#-------------------------------------#
+
+- name: Git clone
+  expect:
+    command: git clone http://gitlab.repo.git "{{ backend }}"
+    responses:
+      Username: "{{ gitlab_username }}"
+      Password: "{{ gitlab_password }}"
+  no_log: true
+
+
+- name: Install packages
+  apt: 
+    name: "{{ packages }}"
+
+- name: ensure nginx.conf
+  copy: 
+  src: ninx.conf.j2 
+  dest: /etc/nginx/nginx.conf
+  notify: restart nginx
+
+- name: Create nginx virtual host for application
+  template: 
+    src: nginx.conf.j2 
+    dest: "/etc/nginx/sites-available/{{ app_name }}"
+  notify: restart nginx
+
+- name: Enable virtual host
+  file: 
+    src: "/etc/nginx/sites-available/{{ app_name }}" 
+    dest: "/etc/nginx/sites-enabled/{{ app_name }}"
+    state: link
+
+- name: install npm
+  shell:
+    cmd: npm install
+    chdir: "{{ frontend }}"
+
+- name: Copy service file for npm
+  template:
+    src: front.service.j2
+    dest: /etc/systemd/system/front.service
+        
+- name: start app
+  service: 
+    name: front 
+    state: started
+  notify: restart nginx
+

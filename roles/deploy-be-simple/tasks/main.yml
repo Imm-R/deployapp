@@ -1,0 +1,93 @@
+---
+# tasks file for deploy-be-simple
+- name: install other packages
+  apt: 
+   name: "{{ packages }}"
+   update_cache: yes
+
+- name: add repo for python 3.6
+  apt_repository:
+    repo: ppa:deadsnakes/ppa
+    state: present
+
+- name: install python packages
+  apt: 
+    name: "{{ python }}" 
+    update_cache: yes
+
+    #-------------Not safety solution-----#
+    #- name: Get repository backend
+    #  git:
+    #    repo: "http://{{ gitlab_username }}:{{ gitlab_password }}@gitlab.repo.git"
+    #    dest: "{{ backend }}"
+    #-------------------------------------#
+
+- name: Git clone
+  expect:
+    command: git clone http://gitlab.repo.git "{{ backend }}"
+    responses:
+      Username: "{{ gitlab_username }}"
+      Password: "{{ gitlab_password }}"
+  no_log: true
+
+
+- name: install python libs
+  pip: 
+    requirements: "{{ backend }}/requirements.txt"
+
+- name: Install WSGI server
+  pip:
+    name: gunicorn
+
+
+- name:  Postgres add worker users.
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    #    role_attr_flags: "CREATEDB,NOSUPERUSER"
+  become: true
+  become_user: "{{ postgresql_user }}"
+
+- name: Postgres add worker databases .
+  postgresql_db:
+    name: "{{ db_name }}"
+    #    login_password:
+    login_user: "{{ postgresql_user }}"
+  become: true
+  become_user: "{{ postgresql_user }}"
+
+- name:  Add access privilege from worker users.
+  postgresql_privs:
+    db: "{{ db_name }}"
+    role: "{{ db_user }}"
+    objs: "{{ db_objs }}"
+    privs: "{{ db_privs }}"
+  become: true
+  become_user: "{{ postgresql_user }}"
+
+- name: export flask app
+  shell: export FLASK_APP="{{ backend }}/app.py" #change path for user
+
+- name: export pg url
+  shell: export POSTGRESQL_URL=postgresql://worker:worker@localhost/app
+
+- name: upgrade db
+  shell:
+    cmd: flask db upgrade
+    chdir: "{{ backend }}"
+
+- name: Copy wsgi file for backend
+  copy:
+    src: wsgi.py
+    dest: "{{ backend }}"
+
+- name: Copy service file for backend
+  template:
+    src: app.service.j2
+    dest: /etc/systemd/system/app.service
+
+- name: start gunicorn service
+  service: 
+    name: app 
+    state: started
+

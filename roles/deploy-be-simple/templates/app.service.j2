@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve myapp
+After=network.target
+
+[Service]
+User={{ ansible_user }}
+Group=www-data
+WorkingDirectory={{ backend }}
+ExecStart=/usr/local/bin/gunicorn --bind 0.0.0.0:5000 wsgi:api
+
+[Install]
+WantedBy=multi-user.target
+

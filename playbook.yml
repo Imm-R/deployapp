@@ -1,0 +1,10 @@
+---
+- name: deploy roles
+  hosts: EDUC
+  become: true
+  tasks:
+
+  roles:
+    - role: deploy-be-simple
+    - role: deploy-fe-simple
+
